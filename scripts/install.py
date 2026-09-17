@@ -127,16 +127,20 @@ def main(argv: list[str] | None = None) -> int:
             # e.g. pi and codex share the cross-runtime .agents/skills path.
             print(f"skipped {harness}: {dest} already installed by {installed[dest]}")
             continue
-        install_skill(
-            harness,
-            args.scope,
-            source=source,
-            cwd=cwd,
-            home=home,
-            codex_home=codex_home_path,
-            force=args.force,
-            dry_run=args.dry_run,
-        )
+        try:
+            install_skill(
+                harness,
+                args.scope,
+                source=source,
+                cwd=cwd,
+                home=home,
+                codex_home=codex_home_path,
+                force=args.force,
+                dry_run=args.dry_run,
+            )
+        except FileExistsError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
         installed[dest] = harness
         verb = "would install to" if args.dry_run else "installed"
         print(f"{verb}: {dest}")

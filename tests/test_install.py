@@ -152,3 +152,18 @@ def test_main_all_project_scope_installs_shared_destination_once(
     assert (tmp_path / "proj/.agents/skills/abc-notation/SKILL.md").is_file()
     assert out.count("installed:") == 2
     assert "skipped" in out
+
+
+def test_main_existing_destination_refuses_cleanly(tmp_path, monkeypatch, capsys):
+    src = _make_source(tmp_path)
+    monkeypatch.setattr(install, "skill_source", lambda: src)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    args = ["--harness", "pi", "--scope", "project", "--cwd", str(tmp_path / "proj")]
+    assert install.main(args) == 0
+    capsys.readouterr()
+    code = install.main(args)  # destination now exists, no --force
+    captured = capsys.readouterr()
+    assert code == 1
+    assert "already exists" in captured.err
+    assert "Traceback" not in captured.err
