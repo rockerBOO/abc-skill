@@ -135,3 +135,20 @@ def test_main_installs_all_harnesses(tmp_path, monkeypatch, capsys):
 def test_main_requires_harness_or_all(capsys):
     with pytest.raises(SystemExit):
         install.main(["--scope", "user"])
+
+
+def test_main_all_project_scope_installs_shared_destination_once(
+    tmp_path, monkeypatch, capsys
+):
+    src = _make_source(tmp_path)
+    monkeypatch.setattr(install, "skill_source", lambda: src)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    code = install.main(["--all", "--scope", "project", "--cwd", str(tmp_path / "proj")])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert (tmp_path / "proj/.claude/skills/abc-notation/SKILL.md").is_file()
+    # pi and codex share the project-scope cross-runtime path; install it once.
+    assert (tmp_path / "proj/.agents/skills/abc-notation/SKILL.md").is_file()
+    assert out.count("installed:") == 2
+    assert "skipped" in out

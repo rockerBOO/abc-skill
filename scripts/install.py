@@ -118,8 +118,16 @@ def main(argv: list[str] | None = None) -> int:
     codex_home = os.environ.get("CODEX_HOME")
     codex_home_path = pathlib.Path(codex_home) if codex_home else None
 
+    installed: dict[pathlib.Path, str] = {}
     for harness in harnesses:
-        dest = install_skill(
+        dest = destination(
+            harness, args.scope, cwd=cwd, home=home, codex_home=codex_home_path
+        )
+        if dest in installed:
+            # e.g. pi and codex share the cross-runtime .agents/skills path.
+            print(f"skipped {harness}: {dest} already installed by {installed[dest]}")
+            continue
+        install_skill(
             harness,
             args.scope,
             source=source,
@@ -129,6 +137,7 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             dry_run=args.dry_run,
         )
+        installed[dest] = harness
         verb = "would install to" if args.dry_run else "installed"
         print(f"{verb}: {dest}")
     return 0
