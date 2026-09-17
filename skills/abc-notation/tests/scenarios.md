@@ -15,8 +15,8 @@ Each scenario is a single prompt given to one fresh agent (no shared history), i
 see its setup note.)
 
 - **Baseline (no skill):** tell the agent it must **not** read or use anything under
-  `.agents/skills/abc-notation/` and to solve the request on its own.
-- **With skill:** tell the agent it has the skill at `.agents/skills/abc-notation/SKILL.md` (with
+  `skills/abc-notation/` and to solve the request on its own.
+- **With skill:** tell the agent it has the skill at `skills/abc-notation/SKILL.md` (with
   `scripts/`) and to follow it.
 - Record the agent's choices and any rationalizations (a concise summary is acceptable; include the
   raw transcript when available).
@@ -26,9 +26,9 @@ Prompt template (shared):
 
 ```
 You are in /home/rockerboo/code/abc-skill.
-[baseline] Do NOT read or use anything under .agents/skills/abc-notation/ — solve this yourself.
-[with skill] You have an ABC skill at .agents/skills/abc-notation/SKILL.md (scripts in
-             .agents/skills/abc-notation/scripts/). Follow the skill.
+[baseline] Do NOT read or use anything under skills/abc-notation/ — solve this yourself.
+[with skill] You have an ABC skill at skills/abc-notation/SKILL.md (scripts in
+             skills/abc-notation/scripts/). Follow the skill.
 
 <TASK>
 ```
@@ -184,9 +184,9 @@ d e f g | a b c' d' |
 Concrete run step, replacing the old `<refA>`/`<refB>` placeholders:
 
 ```bash
-cat tune1.abc | python3 .agents/skills/abc-notation/scripts/abcbox.py send   # -> handle A
-cat tune2.abc | python3 .agents/skills/abc-notation/scripts/abcbox.py send   # -> handle B
-python3 .agents/skills/abc-notation/scripts/mash.py <handleA> <handleB> ...
+cat tune1.abc | python3 skills/abc-notation/scripts/abcbox.py send   # -> handle A
+cat tune2.abc | python3 skills/abc-notation/scripts/abcbox.py send   # -> handle B
+python3 skills/abc-notation/scripts/mash.py <handleA> <handleB> ...
 ```
 
 **Observed behavior — intended failure without the skill:** silently picks an occurrence (often the
