@@ -219,3 +219,83 @@ def _dedup_chords(chords):
         if not out or out[-1] != sym:
             out.append(sym)
     return out
+
+
+def find_section(sections, spec):
+    """spec = 'chorus' or 'chorus#2'. Returns the matching section dict or None."""
+    name, _, idx = spec.partition("#")
+    idx = int(idx) if idx else 1
+    for sec in sections:
+        if sec["label"] == name.strip().lower() and sec["index"] == idx:
+            return sec
+    return None
+
+
+def tonic_pc(keystr):
+    m = re.match(r"\s*([A-Ga-g])([#b]?)", keystr or "C")
+    return (NOTE_PC[m.group(1).upper()]
+            + (1 if m.group(2) == "#" else -1 if m.group(2) == "b" else 0)) % 12
+
+
+def transpose_shift(src_key, target_key):
+    """Nearest semitone shift (in -5..6) from src_key tonic to target_key tonic."""
+    d = (tonic_pc(target_key) - tonic_pc(src_key)) % 12
+    return d - 12 if d > 6 else d
+
+
+def merge(voices, order, which="all"):
+    out = []
+    for vid in order:
+        if which in ("all", vid):
+            out += voices.get(vid, [])
+    return out
+
+
+def select_range(meta, sections, *, section=None, after=None, from_=None,
+                 start=0.0, seconds=None, full=False):
+    """Resolve a selection to (start_beat, end_beat). seconds defaults to 5."""
+    s, e = 0.0, meta["total_beat"]
+    if section:
+        sec = find_section(sections, section)
+        if not sec:
+            raise KeyError(f"no such section: {section}")
+        s, e = sec["start_beat"], sec["end_beat"]
+    elif after:
+        sec = find_section(sections, after)
+        if not sec:
+            raise KeyError(f"no such section: {after}")
+        i = sections.index(sec)
+        if i + 1 >= len(sections):
+            raise KeyError(f"nothing after {after}")
+        s, e = sections[i + 1]["start_beat"], sections[i + 1]["end_beat"]
+    elif from_:
+        sec = find_section(sections, from_)
+        if not sec:
+            raise KeyError(f"no such section: {from_}")
+        s = sec["start_beat"]
+    else:
+        s = start * meta["qpm"] / 60.0
+    if full:
+        return s, e
+    if seconds is None:
+        seconds = 5.0
+    return s, min(e, s + seconds * meta["qpm"] / 60.0)
+
+
+def to_notes(events, qpm, time_scale=1.0, semis=0):
+    """Events in beats -> (midi, start_seconds, dur_seconds), transposed/stretched."""
+    k = 60.0 / qpm * time_scale
+    return [(midi + semis, s * k, d * k) for midi, s, d in events]
+
+
+def apply_fade(notes, fade_in, fade_out, total):
+    """Per-note gain for a linear crossfade; returns 4-tuples (midi, s, d, gain)."""
+    out = []
+    for m, s, d in notes:
+        g = 1.0
+        if fade_in > 0 and s < fade_in:
+            g = min(g, s / fade_in)
+        if fade_out > 0 and s > total - fade_out:
+            g = min(g, (total - s) / fade_out)
+        out.append((m, s, d, max(0.0, g)))
+    return out
