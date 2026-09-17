@@ -1,0 +1,14 @@
+{
+  "name": "abc-skill",
+  "description": "ABC music notation skill for coding agents.",
+  "owner": { "name": "rockerBOO" },
+  "plugins": [
+    {
+      "name": "abc-notation",
+      "description": "Read, reason about, and recombine ABC music notation, and play short audio clips for a human to hear.",
+      "version": "0.1.0",
+      "source": "./",
+      "author": { "name": "rockerBOO" }
+    }
+  ]
+}

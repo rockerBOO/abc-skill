@@ -1,0 +1,9 @@
+{
+  "name": "abc-notation",
+  "description": "Read, reason about, and recombine ABC music notation, and play short audio clips for a human to hear.",
+  "version": "0.1.0",
+  "author": { "name": "rockerBOO" },
+  "homepage": "https://github.com/rockerBOO/abc-skill",
+  "repository": "https://github.com/rockerBOO/abc-skill",
+  "keywords": ["abc", "music", "notation", "agent-skills"]
+}
