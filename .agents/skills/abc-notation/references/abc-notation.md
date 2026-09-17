@@ -14,7 +14,7 @@ A concise reference for the subset of ABC this skill parses.
 | `K:` | Key (also sets the key signature) | `K:G`, `K:F`, `K:Dm`, `K:G mixolydian` |
 | `V:` | Voice declaration / switch | `V:Lead clef=treble name="Lead"` |
 
-Header fields appear before the body, and may also appear inline inside the body (e.g. `[K:G]`).
+Header fields appear before the body. A header on its own line mid-tune (e.g. `K:G`) takes effect from that point on; bracketed inline forms such as `[K:G]` are accepted but ignored.
 
 ## Pitches and octaves
 
