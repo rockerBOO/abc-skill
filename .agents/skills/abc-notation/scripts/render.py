@@ -1,4 +1,5 @@
 """Rendering: dependency-free MIDI writer, SoundFont synth, stdlib fallback synth."""
+import array
 import glob
 import math
 import os
@@ -77,6 +78,33 @@ def render_soundfont(midi_path, wav_path, soundfont, rate=SR):
     return wav_path
 
 
+def trim_wav(path, total_sec, rate=SR, fade=0.1):
+    """Truncate a WAV to total_sec and apply a short fade-out at the end."""
+    with wave.open(path, "rb") as w:
+        params = w.getparams()
+        frames = w.readframes(w.getnframes())
+    nch, width = params.nchannels, params.sampwidth
+    keep = int(total_sec * rate) * nch * width
+    frames = frames[:keep]
+    if width == 2 and fade > 0 and frames:
+        a = array.array("h")
+        a.frombytes(frames)
+        total_frames = len(a) // nch
+        f = min(int(fade * rate), total_frames)
+        for i in range(f):
+            g = i / f
+            base = (total_frames - f + i) * nch
+            for c in range(nch):
+                a[base + c] = int(a[base + c] * g)
+        frames = a.tobytes()
+    with wave.open(path, "wb") as w:
+        w.setnchannels(nch)
+        w.setsampwidth(width)
+        w.setframerate(params.framerate)
+        w.writeframes(frames)
+    return path
+
+
 def synth_window(events, start_beat, dur_beats, qpm, path, gain=0.20):
     """Stdlib synth. events: (midi, start, dur) or (midi, start, dur, gain)."""
     spb = 60.0 / qpm
@@ -137,6 +165,7 @@ def notes_to_wav(notes, total_sec, out, qpm=120.0, engine="auto", program=0, sf=
                       for n in notes]
         write_midi([{"channel": 0, "program": program, "notes": midi_notes}], out + ".mid", qpm)
         render_soundfont(out + ".mid", out, sf)
+        trim_wav(out, total_sec)
         return out, "soundfont"
     synth_notes(notes, total_sec, out)
     return out, "synth"

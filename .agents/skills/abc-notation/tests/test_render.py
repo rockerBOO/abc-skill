@@ -32,3 +32,20 @@ def test_render_soundfont_skipped_without_fluidsynth(tmp_path, monkeypatch):
     path, used = render.notes_to_wav([(60, 0.0, 0.5)], 0.5, str(tmp_path / "c.wav"),
                                      engine="auto", sf=str(tmp_path / "x.sf2"))
     assert used == "synth"
+
+
+def test_trim_wav_limits_duration(tmp_path):
+    import array
+    import wave
+
+    p = tmp_path / "long.wav"
+    n = int(3 * render.SR)
+    a = array.array("h", [10000] * (n * 2))
+    with wave.open(str(p), "wb") as w:
+        w.setnchannels(2)
+        w.setsampwidth(2)
+        w.setframerate(render.SR)
+        w.writeframes(a.tobytes())
+    render.trim_wav(str(p), 1.0)
+    with wave.open(str(p)) as w:
+        assert w.getnframes() == render.SR
