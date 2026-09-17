@@ -11,4 +11,3 @@ wheels/
 
 # Design docs and plans (superpowers) - keep local, don't commit
 docs/superpowers/
-/spike/out/
