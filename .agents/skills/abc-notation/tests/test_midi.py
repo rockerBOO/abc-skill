@@ -27,9 +27,12 @@ def test_write_midi_header_and_length(tmp_path):
 
 
 def test_write_midi_negative_start_delta(tmp_path):
-    # A note starting "before" the window (negative start) must not hang.
+    # A note starting before the window (negative start) must not hang;
+    # a float pitch is coerced rather than crashing.
     out = tmp_path / "n.mid"
     write_midi([{"channel": 0, "program": 0,
-                 "notes": [(-1.0 if False else 0.0, 0.0, 1.0, 100), (64, 1.0, 1.0, 100)]}],
+                 "notes": [(0.0, 0.0, 1.0, 100), (60, -0.5, 1.0, 100), (64, 1.0, 1.0, 100)]}],
                str(out), 120)
-    assert out.read_bytes()[:4] == b"MThd"
+    data = out.read_bytes()
+    assert data[:4] == b"MThd"
+    assert data[-3:] == b"\xff\x2f\x00"
