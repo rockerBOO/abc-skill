@@ -61,3 +61,161 @@ def parse_qpm(q, unit_beats):
         return int(m.group(3)) * (int(m.group(1)) / int(m.group(2))) * 4.0
     m2 = re.search(r"(\d+)", q or "")
     return (int(m2.group(1)) if m2 else 120) * unit_beats
+
+
+def note_to_midi(letter, octmarks, accsym):
+    pc = NOTE_PC[letter.upper()]
+    if accsym == "^":
+        pc += 1
+    elif accsym == "_":
+        pc -= 1
+    pc %= 12
+    octave = (4 if letter.isupper() else 5) + octmarks.count("'") - octmarks.count(",")
+    return (octave + 1) * 12 + pc
+
+
+TOKEN_RE = re.compile(r"""
+    (?P<sym>"[^"]*")
+  | (?P<chord>\[[^\]]*\](?:\d*(?:/{1,2}\d*|\d*/\d+)?)?)
+  | (?P<note>\^?_?=?[A-Ga-g][,']*\d*(?:/{1,2}\d*|\d*/\d+)?)
+  | (?P<rest>Z\d*|[zx]\d*(?:/{1,2}\d*|\d*/\d+)?)
+  | (?P<bar>:\|:?|\|:?|\|\]|\[\||::)
+  | (?P<tie>-)
+  | (?P<other>.)
+""", re.X)
+
+
+class VoiceState:
+    def __init__(self):
+        self.beat = 0.0
+        self.measure_acc = {}
+        self.pending_tie = False
+        self.events = []
+        self.chords = []
+
+
+def parse_voice_line(line, st, keyacc, unit_beats, meter_beats):
+    line = re.sub(r"![^!]*!|\+[^+]*\+", " ", line)
+    line = re.sub(r"\{[^}]*\}", " ", line)
+    line = re.sub(r"\[[A-Za-z]:[^\]]*\]", " ", line)
+    line = line.replace("(", " ").replace(")", " ")
+    for m in TOKEN_RE.finditer(line):
+        if m.group("sym"):
+            st.chords.append((st.beat, m.group("sym")[1:-1]))
+            continue
+        if m.group("bar"):
+            st.measure_acc = {}
+            continue
+        if m.group("tie"):
+            st.pending_tie = True
+            continue
+        r = m.group("rest")
+        if r:
+            if r[0] == "Z":
+                n = int(r[1:]) if r[1:] else 1
+                st.beat += n * meter_beats
+            else:
+                st.beat += parse_duration(r[1:]) * unit_beats
+            st.pending_tie = False
+            continue
+        c = m.group("chord")
+        if c:
+            inner, spec = c[1:].split("]")[0], c.split("]")[1]
+            dur = parse_duration(spec) * unit_beats
+            for s in re.findall(r"\^?_?=?[A-Ga-g][,']*", inner):
+                mm = re.match(r"(\^|_|=)?([A-Ga-g])([,']*)", s)
+                accsym = mm.group(1) or st.measure_acc.get(
+                    mm.group(2).upper(), keyacc.get(mm.group(2).upper(), ""))
+                if mm.group(1):
+                    st.measure_acc[mm.group(2).upper()] = mm.group(1)
+                st.events.append((note_to_midi(mm.group(2), mm.group(3), accsym), st.beat, dur))
+            st.beat += dur
+            st.pending_tie = False
+            continue
+        n = m.group("note")
+        if not n:
+            continue
+        mm = re.match(r"(\^|_|=)?([A-Ga-g])([,']*)(\d*)(/{1,2}\d*|\d*/\d+)?$", n)
+        accsym, letter, octmarks, num, frac = mm.groups()
+        dur = parse_duration((num or "") + (frac or "")) * unit_beats
+        acc = accsym or st.measure_acc.get(letter.upper(), keyacc.get(letter.upper(), ""))
+        if accsym:
+            st.measure_acc[letter.upper()] = accsym
+        midi = note_to_midi(letter, octmarks, acc)
+        if st.pending_tie and st.events and st.events[-1][0] == midi:
+            pm, ps, pd = st.events[-1]
+            st.events[-1] = (pm, ps, pd + dur)
+        else:
+            st.events.append((midi, st.beat, dur))
+        st.beat += dur
+        st.pending_tie = False
+
+
+def parse_abc(text):
+    headers, states, order, sections, counts = {}, {}, [], [], {}
+    cur, keyacc, unit_beats, meter_beats, qpm = "1", {}, 0.5, 4.0, 120.0
+
+    def touch(vid):
+        if vid not in states:
+            states[vid] = VoiceState()
+            order.append(vid)
+        return states[vid]
+
+    for raw in text.splitlines():
+        if raw.lstrip().startswith("%"):
+            label = raw.lstrip().lstrip("%").strip().lower()
+            if label:
+                pos = max((s.beat for s in states.values()), default=0.0)
+                counts[label] = counts.get(label, 0) + 1
+                sections.append({"label": label, "index": counts[label], "start_beat": pos})
+            continue
+        line = raw.split("%", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        mh = re.match(r"^([A-Za-z]):\s*(.*)$", line)
+        if mh:
+            f, val = mh.group(1), mh.group(2)
+            if f == "V":
+                vid = (val.split() or ["1"])[0]
+                touch(vid)
+                cur = vid
+                continue
+            headers[f] = val
+            if f == "K":
+                keyacc = key_accidentals(val)
+            elif f == "L":
+                ln, ld = val.split("/") if "/" in val else (val, "1")
+                unit_beats = float(ln) / float(ld) * 4.0
+            elif f == "M":
+                mm = re.match(r"(\d+)/(\d+)", val)
+                if mm:
+                    meter_beats = int(mm.group(1)) * 4.0 / int(mm.group(2))
+            elif f == "Q":
+                qpm = parse_qpm(val, unit_beats)
+            continue
+        parse_voice_line(line, touch(cur), keyacc, unit_beats, meter_beats)
+
+    total = max((s.beat for s in states.values()), default=0.0)
+    for i, sec in enumerate(sections):
+        sec["end_beat"] = sections[i + 1]["start_beat"] if i + 1 < len(sections) else total
+    all_chords = sorted((c for st in states.values() for c in st.chords))
+    for sec in sections:
+        sec["start_sec"] = sec["start_beat"] * 60.0 / qpm
+        sec["end_sec"] = sec["end_beat"] * 60.0 / qpm
+        sec["voices"] = sorted({vid for vid, s in states.items()
+                                if any(e[1] < sec["end_beat"] and e[1] + e[2] > sec["start_beat"]
+                                       for e in s.events)})
+        sec["chords"] = _dedup_chords([c for c in all_chords
+                                       if sec["start_beat"] <= c[0] < sec["end_beat"]])
+    voices = {vid: st.events for vid, st in states.items()}
+    meta = {"unit_beats": unit_beats, "meter_beats": meter_beats, "qpm": qpm,
+            "keyacc": keyacc, "total_beat": total, "total_sec": total * 60.0 / qpm}
+    return headers, voices, order, meta, sections
+
+
+def _dedup_chords(chords):
+    out = []
+    for _beat, sym in chords:
+        if not out or out[-1] != sym:
+            out.append(sym)
+    return out
