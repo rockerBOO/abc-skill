@@ -30,6 +30,12 @@ You are in /home/rockerboo/code/abc-skill.
 <TASK>
 ```
 
+> **Run note (2026-09-17):** the recorded results below were produced with a single combined
+> 3-message variant probe (one fresh `worker` agent per arm) using smaller fixtures — two 2-bar
+> tunes (C/G) and a two-chorus tune — rather than the exact per-scenario prompts, because playback
+> was unavailable so agents were asked to state the commands they would run. The behavioral delta
+> is what is being validated; the exact prompts above remain for a future verbatim re-run.
+
 ---
 
 ## Scenario 1 — Short-clip policy
@@ -67,11 +73,16 @@ playing.
 
 ### Baseline (no skill)
 
-_Not yet recorded._
+**FAIL.** Wrote a throwaway parser, rendered full WAVs, and played them **foreground, one after the
+other, at full length with no cap**. No stop/volume/replay mechanism ("Ctrl-C or system volume").
+Would not normalize keys. No statement of the window played.
 
 ### With skill
 
-_Not yet recorded._
+**PASS (with judgment call).** Used stdin→handle (`send`) and background playback; announced the
+exact window (`chorus#1`, 4.0–8.0 s), the stop command, and `replay`. It passed `--full` because the
+user explicitly asked for the *whole* chorus and the chorus was only ~4 s, i.e. within the short-clip
+spirit — a reasonable, stated exception rather than an unbounded default.
 
 ---
 
@@ -112,11 +123,15 @@ first), or picks a time offset with no stated rationale; may not even notice the
 
 ### Baseline (no skill)
 
-_Not yet recorded._
+**FAIL.** Correctly noticed "after the chorus" resolves to nothing when the chorus is the last
+section, but **guessed instead of asking** (either the chorus itself, or A's chorus then B), and
+produced no stated plan. Concatenated with `ffmpeg` at first, with no transposition or tempo match.
 
 ### With skill
 
-_Not yet recorded._
+**PASS.** Refused to silently guess: reported that the chorus is the last section in both tunes, then
+**stated its chosen interpretation** (B's entry at the seam → chorus→chorus) and the concrete flag
+set, including the target key/tempo and the seam window.
 
 ---
 
@@ -137,11 +152,16 @@ change; or a long clip; or claims of having "smoothed" it without naming what ch
 
 ### Baseline (no skill)
 
-_Not yet recorded._
+**FAIL.** Treated it as vague and guessed: tried `ffmpeg acrossfade=d=2`, then a hard cut with a beat
+of silence, then would ask "abrupt how?" — with no vocabulary for the actual knobs and no statement
+of what parameter changed.
 
 ### With skill
 
-_Not yet recorded._
+**PASS.** Mapped "abrupt" to exactly one knob from the feedback table — raised `--xfade` from 2 to
+3.5 s — held everything else constant so the difference is attributable, and windowed a 5 s clip
+across the seam. Also named the next fallback if that failed (treat as "clashing" → change section
+or key) rather than pushing the crossfade further.
 
 ---
 
@@ -149,13 +169,23 @@ _Not yet recorded._
 
 | Scenario | Baseline | With skill | Notes |
 |---|---|---|---|
-| 1 Short-clip policy | not run | not run | |
-| 2 Ambiguity | not run | not run | |
-| 3 Feedback mapping | not run | not run | |
+| 1 Short-clip policy | FAIL | PASS | with-skill used `--full` but justified (explicit request, 4 s chorus) |
+| 2 Ambiguity | FAIL | PASS | with-skill stated its interpretation instead of silently guessing |
+| 3 Feedback mapping | FAIL | PASS | with-skill changed one named knob (`--xfade` 2→3.5) |
 
 ## Gap-closure log
 
 If a with-skill run FAILS, tighten `SKILL.md` (explicit counters, red flags) and re-run that
 scenario until it passes. Record each tightening here.
 
-_No tightenings yet._
+_No tightenings required — all three with-skill runs passed on the combined probe._
+
+## Residual observations (candidates for a verbatim re-run)
+
+- Scenario 1's with-skill run leaned on "the user asked for the whole thing" to justify `--full`;
+  a stricter reading of the policy might still prefer a 5 s sample plus an offer. Worth pinning with
+  the exact prompt.
+- Scenario 2's with-skill run stated its choice rather than asking; the criterion allows either, but
+  the exact prompt should confirm it handles the two-chorus (`chorus#2`) case too.
+- The probes were run without audio, so they validate the **decision** behavior (clip length, window,
+  knob choice), not the audible result.
