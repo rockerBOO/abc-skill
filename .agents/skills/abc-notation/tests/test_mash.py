@@ -51,3 +51,16 @@ def test_tempo_normalization():
                          target_qpm=120, mode="layer")
     a = [n for n in notes if n[0] == 60][0]
     assert a[2] == pytest.approx(1.0)
+
+
+def test_slice_section_clamps_boundaries(monkeypatch):
+    import abcbox as B
+    from mash import slice_section
+
+    sections = [{"label": "chorus", "index": 1, "start_beat": 4.0, "end_beat": 8.0}]
+    voices = {"A": [(60, 3.0, 2.0), (62, 7.0, 3.0)]}  # first crosses start, second crosses end
+    monkeypatch.setattr(B, "parse_ref",
+                        lambda ref: ({"K": "C"}, voices, ["A"], {"qpm": 120.0}, sections))
+    _h, _m, _sec, ev = slice_section("x", "chorus", "all")
+    assert ev[0][1] == 0.0 and abs(ev[0][2] - 1.0) < 1e-9   # clamped start, truncated
+    assert ev[1][1] == 3.0 and abs(ev[1][2] - 1.0) < 1e-9   # truncated at section end

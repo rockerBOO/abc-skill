@@ -54,3 +54,18 @@ def test_trim_wav_limits_duration(tmp_path):
     # fade-out: ~full amplitude where the fade begins, ~silent at the final frame
     assert abs(data[(render.SR - int(0.1 * render.SR)) * 2]) > 5000
     assert abs(data[-1]) < 100
+
+
+def test_notes_to_wav_falls_back_on_soundfont_failure(tmp_path, monkeypatch):
+    sf = tmp_path / "x.sf2"
+    sf.write_bytes(b"RIFF")
+    monkeypatch.setattr(render, "fluidsynth_available", lambda: True)
+
+    def boom(*a, **k):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(render, "render_soundfont", boom)
+    path, used = render.notes_to_wav([(60, 0.0, 0.5)], 0.5, str(tmp_path / "d.wav"),
+                                     engine="auto", sf=str(sf))
+    assert used == "synth"
+    assert path == str(tmp_path / "d.wav")

@@ -164,8 +164,11 @@ def notes_to_wav(notes, total_sec, out, qpm=120.0, engine="auto", program=0, sf=
                        max(1, min(127, int(20 + 105 * (n[3] if len(n) > 3 else 1.0)))))
                       for n in notes]
         write_midi([{"channel": 0, "program": program, "notes": midi_notes}], out + ".mid", qpm)
-        render_soundfont(out + ".mid", out, sf)
-        trim_wav(out, total_sec)
-        return out, "soundfont"
+        try:
+            render_soundfont(out + ".mid", out, sf)
+            trim_wav(out, total_sec)
+            return out, "soundfont"
+        except RuntimeError:
+            pass
     synth_notes(notes, total_sec, out)
     return out, "synth"

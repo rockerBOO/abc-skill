@@ -22,9 +22,13 @@ def slice_section(ref, sel, voice):
     if not sec:
         raise SystemExit(f"no section {sel} in {ref}")
     ev = L.merge(voices, order, voice)
-    ev = [(m, s - sec["start_beat"], d) for m, s, d in ev
-          if s < sec["end_beat"] and s + d > sec["start_beat"]]
-    return headers, meta, sec, ev
+    out = []
+    for m, s, d in ev:
+        if s < sec["end_beat"] and s + d > sec["start_beat"]:
+            ns = max(s, sec["start_beat"])
+            ne = min(s + d, sec["end_beat"])
+            out.append((m, ns - sec["start_beat"], ne - ns))
+    return headers, meta, sec, out
 
 
 def plan_mash(*, key_a, key_b, qpm_a, qpm_b, events_a, events_b,
