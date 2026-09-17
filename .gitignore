@@ -1,0 +1,14 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Design docs and plans (superpowers) - keep local, don't commit
+docs/superpowers/
+/spike/out/
