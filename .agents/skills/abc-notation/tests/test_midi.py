@@ -36,3 +36,39 @@ def test_write_midi_negative_start_delta(tmp_path):
     data = out.read_bytes()
     assert data[:4] == b"MThd"
     assert data[-3:] == b"\xff\x2f\x00"
+
+
+def _absolute_ticks(data):
+    """Absolute tick of each event in the first MTrk chunk."""
+    i = data.index(b"MTrk") + 4
+    length = struct.unpack(">I", data[i:i + 4])[0]
+    i += 4
+    end = i + length
+    ticks = 0
+    out = []
+    while i < end:
+        delta = 0
+        while True:
+            b = data[i]
+            i += 1
+            delta = (delta << 7) | (b & 0x7F)
+            if not b & 0x80:
+                break
+        ticks += delta
+        if data[i] == 0xFF:
+            i += 3 + data[i + 2]
+        elif data[i] & 0xF0 in (0xC0, 0xD0):
+            i += 2
+        else:
+            i += 3
+        out.append(ticks)
+    return out
+
+
+def test_negative_start_does_not_shift_later_events(tmp_path):
+    out = tmp_path / "shift.mid"
+    write_midi([{"channel": 0, "program": 0,
+                 "notes": [(60, -0.5, 1.0, 100), (64, 1.0, 1.0, 100)]}], str(out), 120)
+    ticks = _absolute_ticks(out.read_bytes())
+    # second note's note-off is at 2.0 s = 2.0 * 2 * 480 = 1920 ticks
+    assert ticks[-1] == 1920

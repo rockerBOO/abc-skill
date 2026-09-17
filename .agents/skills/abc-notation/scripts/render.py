@@ -28,8 +28,8 @@ def write_midi(tracks, path, qpm):
         ev = [(0, b"\xff\x51\x03" + us_per_q.to_bytes(3, "big")),
               (0, bytes([0xC0 | ch, prog & 0x7F]))]
         for midi, st, du, vel in tr["notes"]:
-            t0 = int(round(st * qpm / 60 * DIV))
-            t1 = int(round((st + du) * qpm / 60 * DIV))
+            t0 = max(0, int(round(st * qpm / 60 * DIV)))
+            t1 = max(0, int(round((st + du) * qpm / 60 * DIV)))
             v = max(1, min(127, int(vel)))
             m = int(midi) & 0x7F
             ev.append((t0, bytes([0x90 | ch, m, v])))
