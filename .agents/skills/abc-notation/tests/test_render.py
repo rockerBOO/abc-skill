@@ -49,3 +49,8 @@ def test_trim_wav_limits_duration(tmp_path):
     render.trim_wav(str(p), 1.0)
     with wave.open(str(p)) as w:
         assert w.getnframes() == render.SR
+        data = array.array("h")
+        data.frombytes(w.readframes(w.getnframes()))
+    # fade-out: ~full amplitude where the fade begins, ~silent at the final frame
+    assert abs(data[(render.SR - int(0.1 * render.SR)) * 2]) > 5000
+    assert abs(data[-1]) < 100

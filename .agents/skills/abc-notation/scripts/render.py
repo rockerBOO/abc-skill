@@ -92,7 +92,7 @@ def trim_wav(path, total_sec, rate=SR, fade=0.1):
         total_frames = len(a) // nch
         f = min(int(fade * rate), total_frames)
         for i in range(f):
-            g = i / f
+            g = 1 - i / f
             base = (total_frames - f + i) * nch
             for c in range(nch):
                 a[base + c] = int(a[base + c] * g)
